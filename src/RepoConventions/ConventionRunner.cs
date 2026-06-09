@@ -345,7 +345,14 @@ internal sealed class ConventionRunner
 			return ConventionExecutionResult.Failed();
 		}
 
-		await File.WriteAllTextAsync(inputPath, JsonSerializer.Serialize(new JsonObject { ["settings"] = settings }), cancellationToken);
+		var conventionInput = new JsonObject
+		{
+			["settings"] = settings,
+		};
+		if (applySettings.GitNoVerify)
+			conventionInput["gitNoVerify"] = true;
+
+		await File.WriteAllTextAsync(inputPath, JsonSerializer.Serialize(conventionInput), cancellationToken);
 
 		try
 		{

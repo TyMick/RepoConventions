@@ -152,7 +152,8 @@ Execution contract:
 - The current working directory is the target Git repository root, not the convention directory.
 - The first argument is the path to a JSON input file.
 - Use `$args[0]` to access the input path so future arguments do not break the script.
-- The JSON input file contains a single `settings` property.
+- The JSON input file always contains a `settings` property.
+- When the command runs with `--git-no-verify`, the input also includes `gitNoVerify: true` so script-managed `git commit` or `git push` calls can pass `--no-verify`.
 - RepoConventions captures stdout and stderr as UTF-8. Set `[Console]::OutputEncoding` before invoking native tools so their output is emitted as UTF-8 too.
 
 Standard header for `convention.ps1`:

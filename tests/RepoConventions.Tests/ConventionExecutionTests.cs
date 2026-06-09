@@ -425,6 +425,40 @@ internal sealed class ConventionExecutionTests
 		}
 	}
 
+	[TestCase(false)]
+	[TestCase(true)]
+	public async Task CommitModePassesGitNoVerifyToExecutableConventionScript(bool gitNoVerify)
+	{
+		using var repo = await TemporaryGitRepository.CreateAsync();
+		repo.WriteFile(".github/conventions.yml", """
+			conventions:
+			- path: ./conventions/self-commit
+			""");
+		repo.WriteFile(".github/conventions/self-commit/convention.ps1", """
+			param([string] $configPath)
+			$config = Get-Content -Raw $configPath | ConvertFrom-Json
+			Set-Content -Path (Join-Path $PWD 'script-created.txt') -Value 'created'
+			git add script-created.txt
+			$arguments = @('commit', '-m', 'Script-created commit.')
+			if ($config.gitNoVerify) { $arguments += '--no-verify' }
+			git @arguments
+			if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+			""");
+		await repo.CommitAllAsync("Initial commit.");
+		repo.InstallFailingHook("commit-msg");
+
+		var arguments = gitNoVerify ? new[] { "apply", "--git-no-verify" } : ["apply"];
+		var result = await CliInvocation.InvokeAsync(arguments, repo.RootPath);
+
+		using (Assert.EnterMultipleScope())
+		{
+			Assert.That(result.ExitCode, Is.EqualTo(gitNoVerify ? 0 : 1));
+			Assert.That(result.StandardError, gitNoVerify ? Is.Empty : Does.Contain("Convention self-commit failed."));
+			Assert.That(await repo.GetHeadCommitMessageAsync(), Is.EqualTo(gitNoVerify ? "Script-created commit." : "Initial commit."));
+			Assert.That(repo.FileExists("script-created.txt"), Is.EqualTo(gitNoVerify));
+		}
+	}
+
 	[Test]
 	public async Task CommitModeReportsTotalCommitsCreatedByConventionScript()
 	{
